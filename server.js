@@ -8,7 +8,6 @@ const games = [];
 connectedUsers.broadcast = function(data, except) {
     for (let user of connectedUsers) {
         if (user !== except) {
-            console.log('yay');
             user.send(data);
         }
     }
@@ -106,8 +105,22 @@ wss.on("connection", ws => {
                     if (getPlayer(msg_content.player_data.id, game_data.players) == null) {
                         game_data.players.push(msg_content.player_data.player);
                     }
-                    connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), ws);
+                    if (msg_content.player_data.new_deck) {
+                        connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), 4);
+                    }
+                    else {
+                        connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), ws);
+                    }
                 }
+            }
+            else if (msg_content.request === 'end_turn') {
+                let game_data = getGame(msg_content.game_id);
+                game_data.turn_count ++;
+                game_data.current_turn ++;
+                if (game_data.current_turn > game_data.players.length - 1) {
+                    game_data.current_turn = 0;
+                }
+                connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
             }
         }
     });
