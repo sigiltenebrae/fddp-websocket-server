@@ -122,6 +122,12 @@ wss.on("connection", ws => {
                 }
                 connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
             }
+            else if (msg_content.request === 'shake') {
+                let game_data = getGame(msg_content.game_id);
+                if (msg_content.card) {
+                    connectedUsers.broadcast(JSON.stringify({shake_data: {cardid: msg_content.card.id, userid: msg_content.card.user, location: msg_content.card.location}}), ws);
+                }
+            }
         }
     });
 
