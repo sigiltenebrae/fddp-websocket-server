@@ -1,4 +1,5 @@
 const WebSocketServer = require('ws');
+const axios = require('axios');
 
 const wss = new WebSocketServer.Server({port: 8191});
 
@@ -40,16 +41,30 @@ wss.on("connection", ws => {
         let msg_content = json_data.content;
         //console.log(msg_content);
         if (msg_content.create) { //Create a game instance
-            games.push({
-                id: games.length + 1,
-                name: msg_content.create.name,
-                max_players: msg_content.create.max_players,
-                type: msg_content.create.type,
-                current_turn: 0,
-                turn_count: 0,
-                players: [],
-            });
-            console.log('game created')
+            axios.post('http://localhost:2999/api/games',
+                {
+                    game: {
+                        name: msg_content.create.name,
+                        type: msg_content.create.type,
+                        max_players: msg_content.create.max_players
+                    }
+                })
+                .then(function (response) {
+                    console.log('created game');
+                    games.push({
+                        id: response.data.game_id,
+                        name: msg_content.create.name,
+                        max_players: msg_content.create.max_players,
+                        type: msg_content.create.type,
+                        current_turn: 0,
+                        turn_count: 0,
+                        players: [],
+                    });
+                    console.log('game added to list');
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
             //connectedUsers.broadcast(JSON.stringify(games));
         }
         else if (msg_content.start) { //figure out turns and start the game
