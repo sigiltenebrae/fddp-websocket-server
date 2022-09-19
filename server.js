@@ -97,28 +97,30 @@ wss.on("connection", ws => {
             else if (msg_content.request === 'player_change') {
                 if (msg_content.game_id && msg_content.player_data) {
                     let game_data = getGame(msg_content.game_id);
-                    if (getPlayer(msg_content.player_data.id, game_data.players) != null) {
-                        for (let i = 0; i < game_data.players.length; i++) {
-                            if (game_data.players[i].id === msg_content.player_data.id){
-                                game_data.players[i] = msg_content.player_data.player;
+                    if (game_data.players != null) {
+                        if (getPlayer(msg_content.player_data.id, game_data.players) != null) {
+                            for (let i = 0; i < game_data.players.length; i++) {
+                                if (game_data.players[i].id === msg_content.player_data.id){
+                                    game_data.players[i] = msg_content.player_data.player;
+                                }
                             }
                         }
-                    }
-                    let out = true;
-                    if (getPlayer(msg_content.player_data.id, game_data.players) == null) {
-                        if (game_data.turn_count > 0) { //the game is in progress
-                            game_data.players.push(msg_content.player_data.player);
+                        let out = true;
+                        if (getPlayer(msg_content.player_data.id, game_data.players) == null) {
+                            if (game_data.turn_count > 0) { //the game is in progress
+                                game_data.players.push(msg_content.player_data.player);
+                            }
+                            else {
+                                game_data.players.push(msg_content.player_data.player);
+                            }
                         }
-                        else {
-                            game_data.players.push(msg_content.player_data.player);
-                        }
-                    }
-                    if (out) {
-                        if (msg_content.player_data.new_deck) {
-                            connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), 4);
-                        }
-                        else {
-                            connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), ws);
+                        if (out) {
+                            if (msg_content.player_data.new_deck) {
+                                connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), 4);
+                            }
+                            else {
+                                connectedUsers.broadcast(JSON.stringify({player_data: msg_content.player_data.player}), ws);
+                            }
                         }
                     }
                 }
