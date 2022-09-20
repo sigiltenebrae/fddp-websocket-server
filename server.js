@@ -13,6 +13,7 @@ const pool = new Pool({
 const wss = new WebSocketServer.Server({port: 8191});
 
 const connectedUsers = new Set();
+const game_types = {};
 const games = [];
 
 connectedUsers.broadcast = function(data, except) {
@@ -21,6 +22,32 @@ connectedUsers.broadcast = function(data, except) {
             user.send(data);
         }
     }
+}
+
+function getGameTypes() {
+    return new Promise((resolve) => {
+        pool.query('SELECT * FROM game_types',
+            (error, results) => {
+                if (error) {
+                    console.log('Error getting all game types');
+                    console.log(error);
+                    resolve();
+                }
+                else {
+                    if (results.rows && results.rows.length > 0) {
+                        for (let row of results.rows) {
+                            game_types[String(row.name)] = row.id;
+                        }
+                        console.log(game_types);
+                        console.log(game_types['commander']);
+                        resolve();
+                    }
+                    else {
+                        resolve();
+                    }
+                }
+            });
+    })
 }
 
 function getGame(id) {
@@ -163,7 +190,7 @@ wss.on("connection", ws => {
                 if (new_game && new_game.game_id) {
                     console.log('created game');
                     games.push({
-                        id: response.data.game_id,
+                        id: new_game.game_id,
                         name: msg_content.create.name,
                         max_players: msg_content.create.max_players,
                         type: msg_content.create.type,
@@ -171,6 +198,16 @@ wss.on("connection", ws => {
                         turn_count: 0,
                         players: [],
                     });
+                    if (msg_content.create.type === game_types['commander']) {
+                        console.log('Game created with type: commander');
+                    }
+                    else if (msg_content.create.type === game_types['star']) {
+                        console.log('Game created with type: star');
+                    }
+                    else {
+                        console.log('could not get game type');
+                    }
+
                     console.log('game added to list');
                 }
             });
@@ -182,21 +219,29 @@ wss.on("connection", ws => {
                 let game_data = getGame(msg_content.game_id);
                 if (game_data) {
                     startGame(game_data).then(() => {
-                        for (let i = 0; i < game_data.players.length; i++) {
-                            let r = i + Math.floor(Math.random() * (game_data.players.length - i));
-                            let temp = game_data.players[r];
-                            game_data.players[r] = game_data.players[i];
-                            game_data.players[i] = temp;
+                        if (game_data.type === game_types['commander'] || game_data.type === game_types['star']) {
+                            if (game_data.type === game_types['commander']) {
+                                console.log('Game started with type: commander');
+                            }
+                            else if (game_data.type === game_types['star']) {
+                                console.log('Game started with type: star');
+                            }
+                            for (let i = 0; i < game_data.players.length; i++) {
+                                let r = i + Math.floor(Math.random() * (game_data.players.length - i));
+                                let temp = game_data.players[r];
+                                game_data.players[r] = game_data.players[i];
+                                game_data.players[i] = temp;
+                            }
+                            let play_order = [];
+                            for (let i = 0; i < game_data.players.length; i++) {
+                                play_order.push({ id: game_data.players[i].id, turn: i});
+                                game_data.players[i].turn = i;
+                            }
+                            game_data.turn_count = 1;
+                            console.log(play_order);
+                            connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
+                            backupGame(game_data);
                         }
-                        let play_order = [];
-                        for (let i = 0; i < game_data.players.length; i++) {
-                            play_order.push({ id: game_data.players[i].id, turn: i});
-                            game_data.players[i].turn = i;
-                        }
-                        game_data.turn_count = 1;
-                        console.log(play_order);
-                        connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
-                        backupGame(game_data);
                     });
                 }
             }
@@ -350,7 +395,7 @@ wss.on("connection", ws => {
     }
 });
 console.log("Loading old games from the db");
-
+getGameTypes().then(() => {console.log('loaded game types');});
 getActiveGames().then((game_data) => {
     if (game_data != null && game_data.length > 0) {
         for (let game of game_data) {
