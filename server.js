@@ -81,6 +81,24 @@ function endGame(winner, winner_two, id) {
     })
 }
 
+function startGame(game) {
+    return new Promise((resolve) => {
+        pool.query('UPDATE games SET started = now() WHERE id = $1',
+            [game.id],
+            (error, results) => {
+                if (error) {
+                    console.log('Game start failed for deck with id: ' + game.id);
+                    console.log(error);
+                    resolve({errors: [error]});
+                }
+                else {
+                    console.log('game started with id ' + game.id);
+                    resolve({message: 'game start successful'});
+                }
+            });
+    })
+}
+
 function backupGame(game) {
     return new Promise((resolve) => {
         pool.query('UPDATE games SET game_data = $1 WHERE id = $2',
@@ -150,24 +168,37 @@ wss.on("connection", ws => {
             if (msg_content.game_id) {
                 console.log('starting the game');
                 let game_data = getGame(msg_content.game_id);
-                if (game_data && game_data) {
-                    for (let i = 0; i < game_data.players.length; i++) {
-                        let r = i + Math.floor(Math.random() * (game_data.players.length - i));
-                        let temp = game_data.players[r];
-                        game_data.players[r] = game_data.players[i];
-                        game_data.players[i] = temp;
-                    }
-                    let play_order = [];
-                    for (let i = 0; i < game_data.players.length; i++) {
-                        play_order.push({ id: game_data.players[i].id, turn: i});
-                        game_data.players[i].turn = i;
-                    }
-                    game_data.turn_count = 1;
-                    console.log(play_order);
-                    connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
+                if (game_data) {
+                    startGame(game_data).then(() => {
+                        for (let i = 0; i < game_data.players.length; i++) {
+                            let r = i + Math.floor(Math.random() * (game_data.players.length - i));
+                            let temp = game_data.players[r];
+                            game_data.players[r] = game_data.players[i];
+                            game_data.players[i] = temp;
+                        }
+                        let play_order = [];
+                        for (let i = 0; i < game_data.players.length; i++) {
+                            play_order.push({ id: game_data.players[i].id, turn: i});
+                            game_data.players[i].turn = i;
+                        }
+                        game_data.turn_count = 1;
+                        console.log(play_order);
+                        connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
+                        backupGame(game_data);
+                    });
                 }
             }
-
+        }
+        else if (msg_content.end) {
+            if (msg_content.game_id) {
+                console.log('ending the game');
+                let game_data = getGame(msg_content.game_id);
+                if (game_data) {
+                    endGame(msg_content.winner, msg_content.winner_two, msg_content.game_id).then(() => {
+                        games.splice(games.indexOf(game_data), 1);
+                    });
+                }
+            }
         }
         else if (msg_content.request) {
             if (msg_content.request === 'games') {
@@ -191,7 +222,7 @@ wss.on("connection", ws => {
             else if (msg_content.request === 'player_change') {
                 if (msg_content.game_id && msg_content.player_data) {
                     let game_data = getGame(msg_content.game_id);
-                    if (game_data.players != null) {
+                    if (game_data && game_data.players != null) {
                         if (getPlayer(msg_content.player_data.id, game_data.players) != null) {
                             for (let i = 0; i < game_data.players.length; i++) {
                                 if (game_data.players[i].id === msg_content.player_data.id){
