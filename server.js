@@ -38,8 +38,6 @@ function getGameTypes() {
                         for (let row of results.rows) {
                             game_types[String(row.name)] = row.id;
                         }
-                        console.log(game_types);
-                        console.log(game_types['commander']);
                         resolve();
                     }
                     else {
@@ -204,6 +202,9 @@ wss.on("connection", ws => {
                     else if (msg_content.create.type === game_types['star']) {
                         console.log('Game created with type: star');
                     }
+                    else if (msg_content.create.type === game_types['two-headed']) {
+                        console.log('Game created with type: two-headed');
+                    }
                     else {
                         console.log('could not get game type');
                     }
@@ -241,6 +242,47 @@ wss.on("connection", ws => {
                             console.log(play_order);
                             connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
                             backupGame(game_data);
+                        }
+                        else if (game_data.type === game_types['two-headed']) {
+                            if (msg_content.teams && msg_content.teams.length > 0) {
+                                console.log('Game started with type: two-headed');
+                                let team_data = [];
+                                for (let j = 0; j < msg_content.teams.length; j++) {
+                                    team_data.push({
+                                        team_id: j,
+                                        turn: -1,
+                                        life: 60,
+                                        infect: 0,
+                                        scooped: false,
+                                        players: msg_content.teams[j],
+                                    });
+                                }
+                                for (let i = 0; i < team_data.length; i++) {
+                                    let r = i + Math.floor(Math.random() * (team_data.length - i));
+                                    let temp = team_data[r];
+                                    team_data[r] = team_data[i];
+                                    team_data[i] = temp;
+                                }
+                                let play_order = [];
+                                for (let i = 0; i < team_data.length; i++) {
+                                    play_order.push({ team_id: team_data[i].team_id, turn: i});
+                                    team_data[i].turn = i;
+                                }
+                                game_data.turn_count = 1;
+                                console.log(play_order);
+                                game_data.team_data = team_data;
+                                for (let team of game_data.team_data) {
+                                   if (team.players && team.players.length === 2) {
+                                       getPlayer(team.players[0], game_data.players).teammate_id = team.players[1];
+                                       getPlayer(team.players[1], game_data.players).teammate_id = team.players[0];
+                                   }
+                                }
+                                connectedUsers.broadcast(JSON.stringify({game_data: game_data}), 4);
+                                backupGame(game_data);
+                            }
+                            else {
+                                console.log('missing teams, cannot start');
+                            }
                         }
                     });
                 }
@@ -342,6 +384,22 @@ wss.on("connection", ws => {
                     connectedUsers.broadcast(JSON.stringify({player_temp_data: msg_content.player_data.player, temp_id: msg_content.temp_id, temp_zone: msg_content.temp_zone, temp_zone_name: msg_content.temp_zone_name}), ws);
                 }
             }
+            else if (msg_content.request === 'team_change') {
+                if (msg_content.game_id && msg_content.team_data) {
+                    console.log('got team data request');
+                    let game_data = getGame(msg_content.game_id);
+                    if (game_data && game_data.team_data != null) {
+                        for (let i = 0; i < game_data.team_data.length; i++) {
+                            if (game_data.team_data[i].id === msg_content.team_data.id) {
+                                console.log('found team to update');
+                                game_data.team_data[i] = msg_content.team_data;
+                                break;
+                            }
+                        }
+                        connectedUsers.broadcast(JSON.stringify({team_data: msg_content.team_data}), ws);
+                    }
+                }
+            }
             else if (msg_content.request === 'end_turn') {
                 let game_data = getGame(msg_content.game_id);
                 let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
@@ -411,7 +469,7 @@ getActiveGames().then((game_data) => {
     }
 });
 
-setInterval(backupGames, 60000);
+//setInterval(backupGames, 60000);
 
 console.log("Websocket running on port 8191");
 
