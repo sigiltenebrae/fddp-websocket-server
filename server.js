@@ -274,7 +274,9 @@ wss.on("connection", ws => {
                                 for (let team of game_data.team_data) {
                                    if (team.players && team.players.length === 2) {
                                        getPlayer(team.players[0], game_data.players).teammate_id = team.players[1];
+                                       getPlayer(team.players[0], game_data.players).hand_preview.push(team.players[1]);
                                        getPlayer(team.players[1], game_data.players).teammate_id = team.players[0];
+                                       getPlayer(team.players[1], game_data.players).hand_preview.push(team.players[0]);
                                    }
                                 }
                                 connectedUsers.broadcast(JSON.stringify({game_data: game_data}), 4);
@@ -403,35 +405,64 @@ wss.on("connection", ws => {
             else if (msg_content.request === 'end_turn') {
                 let game_data = getGame(msg_content.game_id);
                 let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
-                while (true) {
-                    game_data.current_turn ++;
-                    console.log(game_data.current_turn);
-                    console.log(previous_turn);
-                    if (game_data.current_turn > game_data.players.length - 1) {
-                        game_data.current_turn = 0;
-                    }
-                    if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
-                        console.log('bad');
-                        break;
-                    }
-                    let good = false;
-                    for (let player of game_data.players) {
-                        if (player.turn === game_data.current_turn) {
-                            if (player.scooped) {
-                                continue;
-                            }
-                            else {
-                                good = true;
-                                break;
+                if (game_data.type === 1 || game_data.type === 3) {
+                    while (true) {
+                        game_data.current_turn ++;
+                        console.log(game_data.current_turn);
+                        console.log(previous_turn);
+                        if (game_data.current_turn > game_data.players.length - 1) {
+                            game_data.current_turn = 0;
+                        }
+                        if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                            console.log('bad');
+                            break;
+                        }
+                        let good = false;
+                        for (let player of game_data.players) {
+                            if (player.turn === game_data.current_turn) {
+                                if (player.scooped) {
+                                    continue;
+                                }
+                                else {
+                                    good = true;
+                                    break;
+                                }
                             }
                         }
+                        if (good) {
+                            break;
+                        }
                     }
-                    if (good) {
-                        break;
+                    console.log('turn update');
+                    connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
+                }
+                else if (game_data.type === 2) {
+                    while (true) {
+                        game_data.current_turn ++;
+                        if (game_data.current_turn > game_data.team_data.length - 1) {
+                            game_data.current_turn = 0;
+                        }
+                        if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                            console.log('bad');
+                            break;
+                        }
+                        let good = false;
+                        for (let team of game_data.team_data) {
+                            if (team.turn === game_data.current_turn) {
+                                if (team.scooped) {
+                                    continue;
+                                }
+                                else {
+                                    good = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (good) {
+                            break;
+                        }
                     }
                 }
-                console.log('turn update');
-                connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
             }
             else if (msg_content.request === 'shake') {
                 let game_data = getGame(msg_content.game_id);
