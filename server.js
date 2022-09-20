@@ -1,5 +1,4 @@
 const WebSocketServer = require('ws');
-const axios = require('axios');
 const config = require("./db.config");
 
 const Pool = require('pg').Pool
@@ -58,6 +57,29 @@ function getActiveGames() {
                     else {
                         resolve([]);
                     }
+                }
+            });
+    })
+}
+
+function createGame(name, type, max_players, active) {
+    return new Promise((resolve) => {
+        pool.query('INSERT INTO games (name, type, max_players, active) VALUES ($1, $2, $3, true) RETURNING *',
+            [name, type, max_players],
+            (error, results) => {
+                if (error) {
+                    console.log('game creation failed');
+                    console.log(error);
+                    resolve({errors: [error]});
+                }
+                let new_id = results.rows[0].id;
+                if (new_id > -1) {
+                    resolve({game_id: new_id});
+                }
+                else {
+                    console.log('game creation failed');
+                    console.log(error);
+                    resolve({errors: []});
                 }
             });
     })
@@ -136,17 +158,9 @@ wss.on("connection", ws => {
     ws.on("message", data => {
         let json_data = JSON.parse(data);
         let msg_content = json_data.content;
-        //console.log(msg_content);
         if (msg_content.create) { //Create a game instance
-            axios.post('http://localhost:2999/api/games',
-                {
-                    game: {
-                        name: msg_content.create.name,
-                        type: msg_content.create.type,
-                        max_players: msg_content.create.max_players
-                    }
-                })
-                .then(function (response) {
+            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.max_players).then((new_game) => {
+                if (new_game && new_game.game_id) {
                     console.log('created game');
                     games.push({
                         id: response.data.game_id,
@@ -158,10 +172,8 @@ wss.on("connection", ws => {
                         players: [],
                     });
                     console.log('game added to list');
-                })
-                .catch(function (error) {
-                    console.log(error);
-                });
+                }
+            });
             //connectedUsers.broadcast(JSON.stringify(games));
         }
         else if (msg_content.start) { //figure out turns and start the game
