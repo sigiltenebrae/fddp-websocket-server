@@ -1,5 +1,15 @@
 const WebSocketServer = require('ws');
 const axios = require('axios');
+const config = require("./db.config");
+
+const Pool = require('pg').Pool
+const pool = new Pool({
+    user: config.USER,
+    host: config.HOST,
+    database: config.DB,
+    password: config.PASSWORD,
+    port: 5432,
+});
 
 const wss = new WebSocketServer.Server({port: 8191});
 
@@ -30,6 +40,75 @@ function getPlayer(id, playerlist) {
         }
     }
     return null;
+}
+
+function getActiveGames() {
+    return new Promise((resolve) => {
+        pool.query('SELECT * FROM games WHERE active = true',
+            (error, results) => {
+                if (error) {
+                    console.log('Error getting active games');
+                    console.log(error);
+                    resolve({errors: [error]});
+                }
+                else {
+                    if (results.rows && results.rows.length > 0) {
+                        resolve(results.rows);
+                    }
+                    else {
+                        resolve([]);
+                    }
+                }
+            });
+    })
+}
+
+function endGame(winner, winner_two, id) {
+    return new Promise((resolve) => {
+        pool.query('UPDATE games SET active = $1, winner = $2, winner_two = $3, game_data = $4 WHERE id = $5',
+            [false, winner, winner_two, null, id],
+            (error, results) => {
+                if (error) {
+                    console.log('Game end failed for deck with id: ' + id);
+                    console.log(error);
+                    resolve({errors: [error]});
+                }
+                else {
+                    console.log('game ended with id ' + id);
+                    resolve({message: 'game update successful'});
+                }
+            })
+    })
+}
+
+function backupGame(game) {
+    return new Promise((resolve) => {
+        pool.query('UPDATE games SET game_data = $1 WHERE id = $2',
+            [JSON.stringify(game), game.id],
+            (error, results) => {
+                if (error) {
+                    console.log('Game backup failed for deck with id: ' + game.id);
+                    console.log(error);
+                    resolve({errors: [error]});
+                }
+                else {
+                    console.log('game backed up with id ' + game.id);
+                    resolve({message: 'game update successful'});
+                }
+            });
+    })
+}
+
+function backupGames() {
+    if (games.length > 0) {
+        let backupPromises = [];
+        for (let game of games) {
+            backupPromises.push(backupGame(game));
+        }
+        Promise.all(backupPromises).then(() => {
+            console.log('games backed up');
+        });
+    }
 }
 
 wss.on("connection", ws => {
@@ -227,4 +306,24 @@ wss.on("connection", ws => {
         console.log("error occured");
     }
 });
+console.log("Loading old games from the db");
+
+getActiveGames().then((game_data) => {
+    if (game_data != null && game_data.length > 0) {
+        for (let game of game_data) {
+            if (game.game_data != null) {
+                games.push(JSON.parse(game.game_data));
+                console.log('loaded game ' + game.id);
+            }
+            else {
+                endGame(null, null, game.id);
+                console.log('closed game ' + game.id);
+            }
+        }
+    }
+});
+
+setInterval(backupGames, 60000);
+
 console.log("Websocket running on port 8191");
+
