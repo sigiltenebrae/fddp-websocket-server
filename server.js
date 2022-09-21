@@ -1,5 +1,6 @@
 const WebSocketServer = require('ws');
 const config = require("./db.config");
+const {getGameById} = require("./queries");
 
 const Pool = require('pg').Pool
 const pool = new Pool({
@@ -122,7 +123,8 @@ function endGame(winner, winner_two, id) {
                 }
                 else {
                     console.log('game ended with id ' + id);
-                    resolve({message: 'game update successful'});
+                    games.splice(games.indexOf(getGame(id)), 1);
+                    resolve({message: 'game end successful'});
                 }
             })
     })
@@ -167,12 +169,23 @@ function backupGame(game) {
 function backupGames() {
     if (games.length > 0) {
         let backupPromises = [];
+        let trashPromises = [];
         for (let game of games) {
-            backupPromises.push(backupGame(game));
+            console.log('game age for game ' + game.id + ': ' + ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) + ' minutes');
+            if (((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10) {
+                trashPromises.push(endGame(null, null, game.id));
+            }
+            else {
+                backupPromises.push(backupGame(game));
+            }
         }
         Promise.all(backupPromises).then(() => {
             console.log('games backed up');
         });
+        Promise.all(trashPromises).then(() => {
+            console.log('games cleared out');
+        })
+
     }
 }
 
@@ -195,37 +208,46 @@ wss.on("connection", ws => {
                         current_turn: 0,
                         turn_count: 0,
                         players: [],
+                        action_log: [],
+                        last_modified: Date.now()
                     });
+                    let game_data = getGame(new_game.game_id);
                     if (msg_content.create.type === game_types['commander']) {
-                        console.log('Game created with type: commander');
+                        game_data.action_log.push('Game created with type: commander.');
+                        console.log('Game created with type: commander.');
                     }
                     else if (msg_content.create.type === game_types['star']) {
-                        console.log('Game created with type: star');
+                        game_data.action_log.push('Game created with type: star.');
+                        console.log('Game created with type: star.');
                     }
                     else if (msg_content.create.type === game_types['two-headed']) {
-                        console.log('Game created with type: two-headed');
+                        game_data.action_log.push('Game created with type: two-headed.');
+                        console.log('Game created with type: two-headed.');
                     }
                     else {
-                        console.log('could not get game type');
+                        console.log('could not get game type.');
                     }
-
-                    console.log('game added to list');
+                    console.log('game added to list.');
                 }
             });
             //connectedUsers.broadcast(JSON.stringify(games));
         }
         else if (msg_content.start) { //figure out turns and start the game
             if (msg_content.game_id) {
-                console.log('starting the game');
                 let game_data = getGame(msg_content.game_id);
+                game_data.last_modified = Date.now();
+                game_data.action_log.push('Starting the game.');
+                console.log('starting the game.');
                 if (game_data) {
                     startGame(game_data).then(() => {
                         if (game_data.type === game_types['commander'] || game_data.type === game_types['star']) {
                             if (game_data.type === game_types['commander']) {
-                                console.log('Game started with type: commander');
+                                console.log('Game started with type: commander.');
+                                game_data.action_log.push('Game started with type: commander.');
                             }
                             else if (game_data.type === game_types['star']) {
-                                console.log('Game started with type: star');
+                                console.log('Game started with type: star.');
+                                game_data.action_log.push('Game started with type: star.');
                             }
                             for (let i = 0; i < game_data.players.length; i++) {
                                 let r = i + Math.floor(Math.random() * (game_data.players.length - i));
@@ -240,12 +262,14 @@ wss.on("connection", ws => {
                             }
                             game_data.turn_count = 1;
                             console.log(play_order);
+                            game_data.action_log.push('Players shuffled and turn order created.');
                             connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
                             backupGame(game_data);
                         }
                         else if (game_data.type === game_types['two-headed']) {
                             if (msg_content.teams && msg_content.teams.length > 0) {
-                                console.log('Game started with type: two-headed');
+                                console.log('Game started with type: two-headed.');
+                                game_data.action_log.push('Game started with type: two-headed.');
                                 let team_data = [];
                                 for (let j = 0; j < msg_content.teams.length; j++) {
                                     team_data.push({
@@ -279,11 +303,12 @@ wss.on("connection", ws => {
                                        getPlayer(team.players[1], game_data.players).hand_preview.push(team.players[0]);
                                    }
                                 }
+                                game_data.action_log.push('Teams shuffled and turn order created.')
                                 connectedUsers.broadcast(JSON.stringify({game_data: game_data}), 4);
                                 backupGame(game_data);
                             }
                             else {
-                                console.log('missing teams, cannot start');
+                                console.log('Missing teams, cannot start');
                             }
                         }
                     });
@@ -296,7 +321,6 @@ wss.on("connection", ws => {
                 let game_data = getGame(msg_content.game_id);
                 if (game_data) {
                     endGame(msg_content.winner, msg_content.winner_two, msg_content.game_id).then(() => {
-                        games.splice(games.indexOf(game_data), 1);
                     });
                 }
             }
@@ -324,6 +348,10 @@ wss.on("connection", ws => {
                 if (msg_content.game_id && msg_content.player_data) {
                     let game_data = getGame(msg_content.game_id);
                     if (game_data && game_data.players != null) {
+                        game_data.last_modified = Date.now();
+                        if (msg_content.message) {
+                            game_data.action_log.push(msg_content.message);
+                        }
                         if (getPlayer(msg_content.player_data.id, game_data.players) != null) {
                             for (let i = 0; i < game_data.players.length; i++) {
                                 if (game_data.players[i].id === msg_content.player_data.id){
@@ -356,34 +384,40 @@ wss.on("connection", ws => {
                     console.log('temp zone!!')
                     console.log(msg_content);
                     let game_data = getGame(msg_content.game_id);
-                    for (let i = 0; i < game_data.players.length; i++) {
-                        if (game_data.players[i].id === msg_content.player_data.id){
-                            game_data.players[i] = msg_content.player_data.player;
+                    if (game_data && game_data.players != null) {
+                        if (msg_content.message) {
+                            game_data.action_log.push(msg_content.message);
                         }
-                        if (game_data.players[i].id === msg_content.temp_id) {
-                            switch (msg_content.temp_zone_name) {
-                                case 'grave':
-                                    game_data.players[i].grave = msg_content.temp_zone;
-                                    break;
-                                case 'exile':
-                                    game_data.players[i].exile = msg_content.temp_zone;
-                                    break;
-                                case 'temp_zone':
-                                    game_data.players[i].temp_zone = msg_content.temp_zone;
-                                    break;
-                                case 'hand':
-                                    game_data.players[i].hand = msg_content.temp_zone;
-                                    break;
-                                case 'deck':
-                                    game_data.players[i].deck.cards = msg_content.temp_zone;
-                                    break;
-                                case 'commander':
-                                    game_data.players[i].deck.commander = msg_content.temp_zone;
-                                    break;
+                        for (let i = 0; i < game_data.players.length; i++) {
+                            if (game_data.players[i].id === msg_content.player_data.id){
+                                game_data.players[i] = msg_content.player_data.player;
+                            }
+                            if (game_data.players[i].id === msg_content.temp_id) {
+                                switch (msg_content.temp_zone_name) {
+                                    case 'grave':
+                                        game_data.players[i].grave = msg_content.temp_zone;
+                                        break;
+                                    case 'exile':
+                                        game_data.players[i].exile = msg_content.temp_zone;
+                                        break;
+                                    case 'temp_zone':
+                                        game_data.players[i].temp_zone = msg_content.temp_zone;
+                                        break;
+                                    case 'hand':
+                                        game_data.players[i].hand = msg_content.temp_zone;
+                                        break;
+                                    case 'deck':
+                                        game_data.players[i].deck.cards = msg_content.temp_zone;
+                                        break;
+                                    case 'commander':
+                                        game_data.players[i].deck.commander = msg_content.temp_zone;
+                                        break;
+                                }
                             }
                         }
+                        connectedUsers.broadcast(JSON.stringify({player_temp_data: msg_content.player_data.player, temp_id: msg_content.temp_id, temp_zone: msg_content.temp_zone, temp_zone_name: msg_content.temp_zone_name}), ws);
                     }
-                    connectedUsers.broadcast(JSON.stringify({player_temp_data: msg_content.player_data.player, temp_id: msg_content.temp_id, temp_zone: msg_content.temp_zone, temp_zone_name: msg_content.temp_zone_name}), ws);
+
                 }
             }
             else if (msg_content.request === 'team_change') {
@@ -391,6 +425,9 @@ wss.on("connection", ws => {
                     console.log('got team data request');
                     let game_data = getGame(msg_content.game_id);
                     if (game_data && game_data.team_data != null) {
+                        if (msg_content.message) {
+                            game_data.action_log.push(msg_content.message);
+                        }
                         for (let i = 0; i < game_data.team_data.length; i++) {
                             if (game_data.team_data[i].id === msg_content.team_data.id) {
                                 console.log('found team to update');
@@ -403,71 +440,91 @@ wss.on("connection", ws => {
                 }
             }
             else if (msg_content.request === 'end_turn') {
+                console.log('ending turn');
                 let game_data = getGame(msg_content.game_id);
-                let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
-                if (game_data.type === 1 || game_data.type === 3) {
-                    while (true) {
-                        game_data.current_turn ++;
-                        console.log(game_data.current_turn);
-                        console.log(previous_turn);
-                        if (game_data.current_turn > game_data.players.length - 1) {
-                            game_data.current_turn = 0;
-                        }
-                        if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
-                            console.log('bad');
-                            break;
-                        }
-                        let good = false;
-                        for (let player of game_data.players) {
-                            if (player.turn === game_data.current_turn) {
-                                if (player.scooped) {
-                                    continue;
-                                }
-                                else {
-                                    good = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (good) {
-                            break;
-                        }
+                if (game_data) {
+                    game_data.last_modified = Date.now();
+                    if (msg_content.message) {
+                        game_data.action_log.push(msg_content.message);
                     }
-                    console.log('turn update');
-                    connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
-                }
-                else if (game_data.type === 2) {
-                    while (true) {
-                        game_data.current_turn ++;
-                        if (game_data.current_turn > game_data.team_data.length - 1) {
-                            game_data.current_turn = 0;
-                        }
-                        if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
-                            console.log('bad');
-                            break;
-                        }
-                        let good = false;
-                        for (let team of game_data.team_data) {
-                            if (team.turn === game_data.current_turn) {
-                                if (team.scooped) {
-                                    continue;
-                                }
-                                else {
-                                    good = true;
-                                    break;
+                    let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
+                    if (game_data.type === 1 || game_data.type === 3) {
+                        while (true) {
+                            game_data.current_turn ++;
+                            console.log(game_data.current_turn);
+                            console.log(previous_turn);
+                            if (game_data.current_turn > game_data.players.length - 1) {
+                                game_data.current_turn = 0;
+                            }
+                            if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                                console.log('bad');
+                                break;
+                            }
+                            let good = false;
+                            for (let player of game_data.players) {
+                                if (player.turn === game_data.current_turn) {
+                                    if (player.scooped) {
+                                        continue;
+                                    }
+                                    else {
+                                        good = true;
+                                        break;
+                                    }
                                 }
                             }
+                            if (good) {
+                                break;
+                            }
                         }
-                        if (good) {
-                            break;
+                        console.log('turn update');
+                        connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
+                    }
+                    else if (game_data.type === 2) {
+                        while (true) {
+                            game_data.current_turn ++;
+                            if (game_data.current_turn > game_data.team_data.length - 1) {
+                                game_data.current_turn = 0;
+                            }
+                            if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                                console.log('bad');
+                                break;
+                            }
+                            let good = false;
+                            for (let team of game_data.team_data) {
+                                if (team.turn === game_data.current_turn) {
+                                    if (team.scooped) {
+                                        continue;
+                                    }
+                                    else {
+                                        good = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (good) {
+                                break;
+                            }
                         }
+                        console.log('turn update');
+                        connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
                     }
                 }
             }
             else if (msg_content.request === 'shake') {
                 let game_data = getGame(msg_content.game_id);
+                game_data.last_modified = Date.now();
+                if (msg_content.message) {
+                    game_data.action_log.push(msg_content.message);
+                }
                 if (msg_content.card) {
                     connectedUsers.broadcast(JSON.stringify({shake_data: {cardid: msg_content.card.id, userid: msg_content.card.user, location: msg_content.card.location}}), ws);
+                }
+            }
+            else if (msg_content.request === 'select_random') {
+                let game_data = getGame(msg_content.game_id);
+                game_data.last_modified = Date.now();
+                if (msg_content.message) {
+                    game_data.action_log.push(msg_content.message);
                 }
             }
         }
@@ -500,7 +557,7 @@ getActiveGames().then((game_data) => {
     }
 });
 
-//setInterval(backupGames, 60000);
+setInterval(backupGames, 60000);
 
 console.log("Websocket running on port 8191");
 
