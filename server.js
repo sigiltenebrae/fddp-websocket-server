@@ -486,7 +486,9 @@ wss.on("connection", ws => {
                 }
             }
             if (msg_content.log) {
-
+                let game_data = getGame(msg_content.game_id);
+                game_data.action_log.push(msg_content.log);
+                messageConnectedUsers(game_data, {log: msg_content.log}, ws);
             }
         }
         if (msg_content.create) { //Create a game instance
