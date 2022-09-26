@@ -151,7 +151,7 @@ function startGame(game) {
 function backupGame(game) {
     return new Promise((resolve) => {
         pool.query('UPDATE games SET game_data = $1 WHERE id = $2',
-            [JSON.stringify(game), game.id],
+            [game, game.id],
             (error, results) => {
                 if (error) {
                     console.log('Game backup failed for deck with id: ' + game.id);
@@ -307,6 +307,8 @@ wss.on("connection", ws => {
                                             getPlayer(team.players[1], game_data.players).hand_preview.push(team.players[0]);
                                         }
                                     }
+                                    console.log('started two headed');
+                                    messageConnectedUsers(game_data, JSON.stringify({get: {game_data: JSON.parse(JSON.stringify(game_data))}}), null);
                                     backupGame(game_data);
                                 }
                                 else {
@@ -423,12 +425,18 @@ wss.on("connection", ws => {
                                     if (game_data.turn_count === 0 && game_data.players.length < game_data.max_players) { //the game is in progress
                                         game_data.players.push(msg_content.put.player_data);
                                         console.log('player added')
+                                        console.log('updating players')
+                                        messageConnectedUsers(game_data, {get: {game_data: JSON.parse(JSON.stringify(game_data))}}, null);
                                     }
                                     else {
                                         game_data.spectators.push(msg_content.put.player_data);
+                                        console.log('updating players')
+                                        let spectator = msg_content.put.player_data;
+                                        spectator.spectating = true;
+                                        spectator.play_counters = [];
+                                        messageConnectedUsers(game_data, {get: {spectator_data: spectator}}, null);
                                     }
-                                    console.log('updating players')
-                                    messageConnectedUsers(game_data, {get: {game_data: game_data}}, null);
+
                                 }
                             }
                         }
@@ -441,6 +449,7 @@ wss.on("connection", ws => {
                                     break;
                                 }
                             }
+                            messageConnectedUsers(game_data, {get: {team_data: msg_content.put.team_data}}, ws);
                         }
                         if (msg_content.put.zone_data) {
                             let game_data = getGame(msg_content.game_id);
@@ -482,6 +491,30 @@ wss.on("connection", ws => {
                     if (msg_content.put.action === 'random') {
                         let game_data = getGame(msg_content.game_id);
                         game_data.last_modified = Date.now();
+                    }
+                    if (msg_content.put.action === 'scoop') {
+                        let game_data = getGame(msg_content.game_id);
+                        if (game_data && game_data.players != null) {
+                            game_data.last_modified = Date.now();
+                            let spectator = {
+                                id: msg_content.put.player_data.id,
+                                name: msg_content.put.player_data.name,
+                                spectating: true,
+                                play_counters: []
+                            }
+                            let ind = -1;
+                            for (let i = 0; i < game_data.players.length; i++) {
+                                if (game_data.players[i].id === msg_content.put.player_data.id) {
+                                    ind = i;
+                                    break;
+                                }
+                            }
+                            if(ind > -1) {
+                                game_data.players.splice(ind, 1);
+                            }
+                            game_data.spectators.push(spectator);
+                            messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
+                        }
                     }
                 }
             }
