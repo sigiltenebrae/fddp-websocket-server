@@ -149,7 +149,7 @@ function startGame(game) {
 }
 
 function backupGame(game) {
-    /*return new Promise((resolve) => {
+    return new Promise((resolve) => {
         pool.query('UPDATE games SET game_data = $1 WHERE id = $2',
             [game, game.id],
             (error, results) => {
@@ -163,7 +163,7 @@ function backupGame(game) {
                     resolve({message: 'game update successful'});
                 }
             });
-    })*/
+    })
 }
 
 function backupGames() {
@@ -309,7 +309,7 @@ wss.on("connection", ws => {
                                         }
                                     }
                                     console.log('started two headed');
-                                    messageConnectedUsers(game_data, JSON.stringify({get: {game_data: JSON.parse(JSON.stringify(game_data))}}), null);
+                                    messageConnectedUsers(game_data,{get: {game_data: JSON.parse(JSON.stringify(game_data))}}, null);
                                     backupGame(game_data);
                                 }
                                 else {
@@ -485,7 +485,9 @@ wss.on("connection", ws => {
                         let game_data = getGame(msg_content.game_id);
                         game_data.last_modified = Date.now();
                         if (msg_content.put.card) {
-                            //connectedUsers.broadcast(JSON.stringify({shake_data: {cardid: msg_content.card.id, userid: msg_content.card.user, location: msg_content.card.location}}), ws);
+                            messageConnectedUsers(game_data,
+                                {get:
+                                        {shake_data: {card: msg_content.put.card, id: msg_content.put.id, location: msg_content.put.location}}}, ws);
                         }
                     }
                     if (msg_content.put.action === 'random') {
@@ -894,7 +896,7 @@ getActiveGames().then((game_data) => {
     }
 });
 
-//setInterval(backupGames, 60000);
+setInterval(backupGames, 60000);
 
 console.log("Websocket running on port 8191");
 
