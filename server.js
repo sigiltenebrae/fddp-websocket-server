@@ -149,7 +149,7 @@ function startGame(game) {
 }
 
 function backupGame(game) {
-    return new Promise((resolve) => {
+    /*return new Promise((resolve) => {
         pool.query('UPDATE games SET game_data = $1 WHERE id = $2',
             [game, game.id],
             (error, results) => {
@@ -163,7 +163,7 @@ function backupGame(game) {
                     resolve({message: 'game update successful'});
                 }
             });
-    })
+    })*/
 }
 
 function backupGames() {
@@ -297,6 +297,7 @@ wss.on("connection", ws => {
                                         play_order.push({ team_id: team_data[i].team_id, turn: i});
                                         team_data[i].turn = i;
                                     }
+                                    game_data.current_turn = 0;
                                     game_data.turn_count = 1;
                                     game_data.team_data = team_data;
                                     for (let team of game_data.team_data) {
@@ -325,6 +326,10 @@ wss.on("connection", ws => {
                                         game_data.players[i].turn = i;
                                     }
                                     game_data.turn_count = 1;
+                                    game_data.current_turn = 0;
+                                    console.log('got here');
+                                    messageConnectedUsers(game_data,
+                                            JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
                                     backupGame(game_data);
                                 }
 
@@ -340,7 +345,6 @@ wss.on("connection", ws => {
                                 while (true) {
                                     game_data.current_turn ++;
                                     console.log(game_data.current_turn);
-                                    console.log(previous_turn);
                                     if (game_data.current_turn > game_data.players.length - 1) {
                                         game_data.current_turn = 0;
                                     }
@@ -351,13 +355,8 @@ wss.on("connection", ws => {
                                     let good = false;
                                     for (let player of game_data.players) {
                                         if (player.turn === game_data.current_turn) {
-                                            if (player.scooped) {
-                                                continue;
-                                            }
-                                            else {
-                                                good = true;
-                                                break;
-                                            }
+                                            good = true;
+                                            break;
                                         }
                                     }
                                     if (good) {
@@ -365,7 +364,8 @@ wss.on("connection", ws => {
                                     }
                                 }
                                 console.log('turn update');
-
+                                console.log(game_data.current_turn);
+                                messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
                             }
                             else if (game_data.type === 2) {
                                 while (true) {
@@ -394,14 +394,14 @@ wss.on("connection", ws => {
                                     }
                                 }
                                 console.log('turn update');
-
+                                messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
                             }
                         }
                     }
                     if (msg_content.put.action === 'end') {
                         let game_data = getGame(msg_content.game_id);
                         if (game_data) {
-                            endGame(msg_content.winner, msg_content.winner_two, msg_content.game_id).then(() => {});
+                            endGame(msg_content.put.winner, msg_content.put.winner_two, msg_content.game_id).then(() => {});
                         }
                     }
                     if (msg_content.put.action === 'update') {
