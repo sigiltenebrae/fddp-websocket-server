@@ -314,6 +314,37 @@ wss.on("connection", ws => {
                                     messageConnectedUsers(game_data,{get: {game_data: JSON.parse(JSON.stringify(game_data))}}, null);
                                     backupGame(game_data);
                                 }
+                                else if (game_data.type === game_types['star']) {
+                                    if (msg_content.put.colors) {
+                                        for (let player of game_data.players) {
+                                            for (let color of msg_content.put.colors) {
+                                                if (color.id === player.id) {
+                                                    player.star_color = color.star_color;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    console.log('starting game ' + game_data.id);
+                                    for (let i = 0; i < game_data.players.length; i++) {
+                                        let r = i + Math.floor(Math.random() * (game_data.players.length - i));
+                                        let temp = game_data.players[r];
+                                        game_data.players[r] = game_data.players[i];
+                                        game_data.players[i] = temp;
+                                    }
+                                    let play_order = [];
+                                    for (let i = 0; i < game_data.players.length; i++) {
+                                        play_order.push({ id: game_data.players[i].id, turn: i});
+                                        game_data.players[i].turn = i;
+                                    }
+                                    game_data.turn_count = 1;
+                                    game_data.current_turn = 0;
+                                    console.log('got here');
+                                    game_data.last_turn = new Date().getTime();
+                                    messageConnectedUsers(game_data,
+                                        JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
+                                    backupGame(game_data);
+                                }
                                 else {
                                     console.log('starting game ' + game_data.id);
                                     for (let i = 0; i < game_data.players.length; i++) {
@@ -534,8 +565,10 @@ wss.on("connection", ws => {
             }
             if (msg_content.log) {
                 let game_data = getGame(msg_content.game_id);
-                game_data.action_log.push(msg_content.log);
-                messageConnectedUsers(game_data, {log: msg_content.log}, ws);
+                if (game_data) {
+                    game_data.action_log.push(msg_content.log);
+                    messageConnectedUsers(game_data, {log: msg_content.log}, ws);
+                }
             }
         }
         if (msg_content.create) { //Create a game instance
@@ -581,10 +614,10 @@ wss.on("connection", ws => {
         else if (msg_content.start) { //figure out turns and start the game
             if (msg_content.game_id) {
                 let game_data = getGame(msg_content.game_id);
-                game_data.last_modified = Date.now();
-                logActionSend(game_data);
-                console.log('starting the game.');
                 if (game_data) {
+                    console.log('starting the game.');
+                    logActionSend(game_data);
+                    game_data.last_modified = Date.now();
                     startGame(game_data).then(() => {
                         if (game_data.type === game_types['commander'] || game_data.type === game_types['star']) {
                             if (game_data.type === game_types['commander']) {
@@ -855,19 +888,23 @@ wss.on("connection", ws => {
             }
             else if (msg_content.request === 'shake') {
                 let game_data = getGame(msg_content.game_id);
-                game_data.last_modified = Date.now();
-                if (msg_content.message) {
-                    logActionSend(game_data);
-                }
-                if (msg_content.card) {
-                    connectedUsers.broadcast(JSON.stringify({shake_data: {cardid: msg_content.card.id, userid: msg_content.card.user, location: msg_content.card.location}}), ws);
+                if (game_data) {
+                    game_data.last_modified = Date.now();
+                    if (msg_content.message) {
+                        logActionSend(game_data);
+                    }
+                    if (msg_content.card) {
+                        connectedUsers.broadcast(JSON.stringify({shake_data: {cardid: msg_content.card.id, userid: msg_content.card.user, location: msg_content.card.location}}), ws);
+                    }
                 }
             }
             else if (msg_content.request === 'select_random') {
                 let game_data = getGame(msg_content.game_id);
-                game_data.last_modified = Date.now();
-                if (msg_content.message) {
-                    logActionSend(game_data);
+                if (game_data) {
+                    game_data.last_modified = Date.now();
+                    if (msg_content.message) {
+                        logActionSend(game_data);
+                    }
                 }
             }
         }
