@@ -310,6 +310,7 @@ wss.on("connection", ws => {
                                         }
                                     }
                                     console.log('started two headed');
+                                    game_data.last_turn = new Date().getTime();
                                     messageConnectedUsers(game_data,{get: {game_data: JSON.parse(JSON.stringify(game_data))}}, null);
                                     backupGame(game_data);
                                 }
@@ -329,6 +330,7 @@ wss.on("connection", ws => {
                                     game_data.turn_count = 1;
                                     game_data.current_turn = 0;
                                     console.log('got here');
+                                    game_data.last_turn = new Date().getTime();
                                     messageConnectedUsers(game_data,
                                             JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
                                     backupGame(game_data);
@@ -364,6 +366,7 @@ wss.on("connection", ws => {
                                         break;
                                     }
                                 }
+                                game_data.last_turn = new Date().getTime();
                                 messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
                             }
                             else if (game_data.type === 2) {
@@ -393,6 +396,7 @@ wss.on("connection", ws => {
                                     }
                                 }
                                 console.log('turn update');
+                                game_data.last_turn = new Date().getTime();
                                 messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
                             }
                         }
@@ -549,7 +553,9 @@ wss.on("connection", ws => {
                         spectators: [],
                         connected: [],
                         action_log: [],
-                        last_modified: Date.now()
+                        last_modified: Date.now(),
+                        started: new Date().getTime(),
+                        last_turn: null,
                     });
                     let game_data = getGame(new_game.game_id);
                     if (msg_content.create.type === game_types['commander']) {
@@ -601,6 +607,7 @@ wss.on("connection", ws => {
                                 game_data.players[i].turn = i;
                             }
                             game_data.turn_count = 1;
+                            game_data.last_turn = new Date().getTime();
                             console.log(play_order);
                             logActionSend(game_data);
                             connectedUsers.broadcast(JSON.stringify({play_order: play_order}), 4);
