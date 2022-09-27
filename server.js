@@ -254,6 +254,7 @@ wss.on("connection", ws => {
                                 spectators: [],
                                 connected: [],
                                 action_log: [],
+                                current_plane: null,
                                 last_modified: Date.now()
                             });
                         }
@@ -363,8 +364,6 @@ wss.on("connection", ws => {
                                         break;
                                     }
                                 }
-                                console.log('turn update');
-                                console.log(game_data.current_turn);
                                 messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
                             }
                             else if (game_data.type === 2) {
@@ -478,6 +477,15 @@ wss.on("connection", ws => {
                                     }
                                     messageConnectedUsers(game_data, {get: {zone_data: msg_content.put.zone_data}}, ws);
                                 }
+                            }
+                        }
+                        if (msg_content.put.plane_data) {
+                            let game_data = getGame(msg_content.game_id);
+                            if (game_data) {
+                                console.log('got plane');
+                                game_data.last_modified = Date.now();
+                                game_data.current_plane = msg_content.put.plane_data;
+                                messageConnectedUsers(game_data, {get: {plane_data: msg_content.put.plane_data}}, ws);
                             }
                         }
                     }
@@ -713,8 +721,6 @@ wss.on("connection", ws => {
             }
             else if (msg_content.request === 'player_and_temp_change') {
                 if (msg_content.game_id && msg_content.player_data && msg_content.temp_zone) {
-                    console.log('temp zone!!')
-                    console.log(msg_content);
                     let game_data = getGame(msg_content.game_id);
                     if (game_data && game_data.players != null) {
                         if (msg_content.message) {
@@ -808,7 +814,6 @@ wss.on("connection", ws => {
                                 break;
                             }
                         }
-                        console.log('turn update');
                         connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
                     }
                     else if (game_data.type === 2) {
@@ -837,7 +842,6 @@ wss.on("connection", ws => {
                                 break;
                             }
                         }
-                        console.log('turn update');
                         connectedUsers.broadcast(JSON.stringify({turn_data: {turn_count: game_data.turn_count, current_turn: game_data.current_turn}}), 4);
                     }
                 }
