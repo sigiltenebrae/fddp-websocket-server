@@ -193,6 +193,66 @@ function logActionSend(game_data) {
     connectedUsers.broadcast(JSON.stringify({action_log: game_data.action_log}), 4);
 }
 
+function nextTurn(game_data) {
+    if(game_data != null) {
+        if (game_data.type === 1 || game_data.type === 3) {
+            while (true) {
+                game_data.current_turn ++;
+                console.log(game_data.current_turn);
+                if (game_data.current_turn > game_data.players[game_data.players.length - 1].turn) {
+                    game_data.current_turn = 0;
+                }
+                if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                    console.log('bad');
+                    break;
+                }
+                let good = false;
+                for (let player of game_data.players) {
+                    if (player.turn === game_data.current_turn) {
+                        good = true;
+                        break;
+                    }
+                }
+                if (good) {
+                    break;
+                }
+            }
+            game_data.last_turn = new Date().getTime();
+            messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
+        }
+        else if (game_data.type === 2) {
+            while (true) {
+                game_data.current_turn ++;
+                if (game_data.current_turn > game_data.team_data[game_data.team_data.length - 1].turn) {
+                    game_data.current_turn = 0;
+                }
+                if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
+                    console.log('bad');
+                    break;
+                }
+                let good = false;
+                for (let team of game_data.team_data) {
+                    if (team.turn === game_data.current_turn) {
+                        if (team.scooped) {
+                            continue;
+                        }
+                        else {
+                            good = true;
+                            break;
+                        }
+                    }
+                }
+                if (good) {
+                    break;
+                }
+            }
+            console.log('turn update');
+            game_data.last_turn = new Date().getTime();
+            messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
+        }
+    }
+}
+
 function messageConnectedUsers(game_data, message_data, besides) {
     for (let user of game_data.connected) {
         if (besides != null) {
@@ -375,61 +435,7 @@ wss.on("connection", ws => {
                         if (game_data) {
                             game_data.last_modified = Date.now();
                             let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
-                            if (game_data.type === 1 || game_data.type === 3) {
-                                while (true) {
-                                    game_data.current_turn ++;
-                                    console.log(game_data.current_turn);
-                                    if (game_data.current_turn > game_data.players.length - 1) {
-                                        game_data.current_turn = 0;
-                                    }
-                                    if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
-                                        console.log('bad');
-                                        break;
-                                    }
-                                    let good = false;
-                                    for (let player of game_data.players) {
-                                        if (player.turn === game_data.current_turn) {
-                                            good = true;
-                                            break;
-                                        }
-                                    }
-                                    if (good) {
-                                        break;
-                                    }
-                                }
-                                game_data.last_turn = new Date().getTime();
-                                messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
-                            }
-                            else if (game_data.type === 2) {
-                                while (true) {
-                                    game_data.current_turn ++;
-                                    if (game_data.current_turn > game_data.team_data.length - 1) {
-                                        game_data.current_turn = 0;
-                                    }
-                                    if (game_data.current_turn === previous_turn) { //everyone has scooped, why are you ending the turn
-                                        console.log('bad');
-                                        break;
-                                    }
-                                    let good = false;
-                                    for (let team of game_data.team_data) {
-                                        if (team.turn === game_data.current_turn) {
-                                            if (team.scooped) {
-                                                continue;
-                                            }
-                                            else {
-                                                good = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (good) {
-                                        break;
-                                    }
-                                }
-                                console.log('turn update');
-                                game_data.last_turn = new Date().getTime();
-                                messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
-                            }
+                            nextTurn(game_data);
                         }
                     }
                     if (msg_content.put.action === 'end') {
@@ -541,6 +547,10 @@ wss.on("connection", ws => {
                         let game_data = getGame(msg_content.game_id);
                         if (game_data && game_data.players != null) {
                             game_data.last_modified = Date.now();
+                            let bad_turn = false;
+                            if (msg_content.put.player_data.turn === game_data.current_turn) {
+                                bad_turn = true;
+                            }
                             let spectator = {
                                 id: msg_content.put.player_data.id,
                                 name: msg_content.put.player_data.name,
@@ -559,6 +569,9 @@ wss.on("connection", ws => {
                             }
                             game_data.spectators.push(spectator);
                             messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
+                            if (bad_turn) {
+                                nextTurn();
+                            }
                         }
                     }
                 }
