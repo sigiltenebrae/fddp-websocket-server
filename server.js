@@ -316,7 +316,7 @@ wss.on("connection", ws => {
                                 id: new_game.game_id,
                                 name: msg_content.create.name,
                                 max_players: msg_content.create.max_players,
-                                type: msg_content.create.type,8191
+                                type: msg_content.create.type,
                                 current_turn: 0,
                                 turn_count: 0,
                                 players: [],
