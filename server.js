@@ -17,10 +17,9 @@ const options = {
     key: fs.readFileSync('key.pem'),
     cert: fs.readFileSync('cert.pem')
 }
+console.log('read cert');
 
-let server = https.createServer(options,
-    function(req,res){res.writeHeader(200);res.end();});
-server.listen(8191);
+let server = https.createServer(options).listen(8191);
 const wss = new WebSocketServer({server});
 
 const connectedUsers = new Set();
@@ -317,7 +316,7 @@ wss.on("connection", ws => {
                                 id: new_game.game_id,
                                 name: msg_content.create.name,
                                 max_players: msg_content.create.max_players,
-                                type: msg_content.create.type,
+                                type: msg_content.create.type,8191
                                 current_turn: 0,
                                 turn_count: 0,
                                 players: [],
