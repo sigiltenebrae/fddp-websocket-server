@@ -196,6 +196,7 @@ function logActionSend(game_data) {
 function nextTurn(game_data) {
     if(game_data != null) {
         if (game_data.type === 1 || game_data.type === 3) {
+            let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
             while (true) {
                 game_data.current_turn ++;
                 console.log(game_data.current_turn);
@@ -221,6 +222,7 @@ function nextTurn(game_data) {
             messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
         }
         else if (game_data.type === 2) {
+            let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
             while (true) {
                 game_data.current_turn ++;
                 if (game_data.current_turn > game_data.team_data[game_data.team_data.length - 1].turn) {
