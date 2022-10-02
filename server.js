@@ -1,4 +1,6 @@
-const WebSocketServer = require('ws');
+const WebSocket = require('ws').Server;
+const HttpsServer = require('https').createServer;
+const fs = require("fs");
 const config = require("./db.config");
 const {getGameById} = require("./queries");
 
@@ -11,7 +13,14 @@ const pool = new Pool({
     port: 5432,
 });
 
-const wss = new WebSocketServer.Server({port: 8191});
+server = HttpsServer({
+    cert: fs.readFileSync('cert.pem'),
+    key: fs.readFileSync('key.pem')
+})
+
+//const wss = new WebSocketServer.Server({port: 8191});
+
+const wss = new WebSocket({ server: server});
 
 const connectedUsers = new Set();
 const game_types = {};
