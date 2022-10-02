@@ -337,6 +337,7 @@ wss.on("connection", ws => {
                         game_data.last_modified = Date.now();
                         if (game_data) {
                             startGame(game_data).then(() => {
+                                game_data.started = new Date().getTime();
                                 if (game_data.type === game_types['two-headed']) {
                                     let team_data = [];
                                     for (let j = 0; j < msg_content.put.teams.length; j++) {
