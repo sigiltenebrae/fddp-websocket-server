@@ -1,6 +1,4 @@
-const WebSocket = require('ws').Server;
-const HttpsServer = require('https').createServer;
-const fs = require("fs");
+const WebSocketServer = require('ws');
 const config = require("./db.config");
 const {getGameById} = require("./queries");
 
@@ -13,13 +11,7 @@ const pool = new Pool({
     port: 5432,
 });
 
-server = HttpsServer({
-    cert: fs.readFileSync('cert.pem', 'utf8'),
-    key: fs.readFileSync('key.pem', 'utf8')
-})
-//const wss = new WebSocketServer.Server({port: 8191});
-
-const wss = new WebSocket({ server: server});
+const wss = new WebSocketServer.Server({port: 8191});
 
 const connectedUsers = new Set();
 const game_types = {};
@@ -345,7 +337,6 @@ wss.on("connection", ws => {
                         game_data.last_modified = Date.now();
                         if (game_data) {
                             startGame(game_data).then(() => {
-                                game_data.started = new Date().getTime();
                                 if (game_data.type === game_types['two-headed']) {
                                     let team_data = [];
                                     for (let j = 0; j < msg_content.put.teams.length; j++) {
@@ -636,8 +627,6 @@ getActiveGames().then((game_data) => {
 });
 
 setInterval(backupGames, 60000);
-
-server.listen(8191);
 
 console.log("Websocket running on port 8191");
 
