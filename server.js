@@ -313,8 +313,9 @@ wss.on("connection", ws => {
                         spectators: [],
                         connected: [],
                         action_log: [],
-                        current_plane: null,
-                        last_modified: Date.now()
+                        last_modified: Date.now(),
+                        started: new Date().getTime(),
+                        last_turn: null,
                     });
                 }
             });
