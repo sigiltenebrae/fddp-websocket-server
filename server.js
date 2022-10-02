@@ -14,10 +14,9 @@ const pool = new Pool({
 });
 
 server = HttpsServer({
-    cert: fs.readFileSync('cert.pem'),
-    key: fs.readFileSync('key.pem')
+    cert: fs.readFileSync('cert.pem', 'utf8'),
+    key: fs.readFileSync('key.pem', 'utf8')
 })
-
 //const wss = new WebSocketServer.Server({port: 8191});
 
 const wss = new WebSocket({ server: server});
@@ -637,6 +636,8 @@ getActiveGames().then((game_data) => {
 });
 
 setInterval(backupGames, 60000);
+
+server.listen(8191);
 
 console.log("Websocket running on port 8191");
 
