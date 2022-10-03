@@ -279,7 +279,7 @@ wss.on("connection", ws => {
                 if (msg_content.get.game === 'All') {
                     console.log('sending all games');
                     ws.send(JSON.stringify({get: {
-                            game_data: {games: games}
+                            game_data: {games: JSON.parse(JSON.stringify(games))}
                         }
                     }));
                 }
