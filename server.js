@@ -193,6 +193,17 @@ function logActionSend(game_data) {
     connectedUsers.broadcast(JSON.stringify({action_log: game_data.action_log}), 4);
 }
 
+function getTeam(player, game_data) {
+    for (let team of game_data.team_data) {
+        for (let team_player of team.players) {
+            if (player === team_player) {
+                return team;
+            }
+        }
+    }
+    return null;
+}
+
 function nextTurn(game_data) {
     if(game_data != null) {
         if (game_data.type === 1 || game_data.type === 3 || game_data.type === 4 || game_data.type == 5) {
@@ -436,7 +447,6 @@ wss.on("connection", ws => {
                         let game_data = getGame(msg_content.game_id);
                         if (game_data) {
                             game_data.last_modified = Date.now();
-                            let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
                             nextTurn(game_data);
                         }
                     }
@@ -550,29 +560,67 @@ wss.on("connection", ws => {
                         if (game_data && game_data.players != null) {
                             game_data.last_modified = Date.now();
                             let bad_turn = false;
-                            if (msg_content.put.player_data.turn === game_data.current_turn) {
-                                bad_turn = true;
-                            }
-                            let spectator = {
-                                id: msg_content.put.player_data.id,
-                                name: msg_content.put.player_data.name,
-                                spectating: true,
-                                play_counters: []
-                            }
-                            let ind = -1;
-                            for (let i = 0; i < game_data.players.length; i++) {
-                                if (game_data.players[i].id === msg_content.put.player_data.id) {
-                                    ind = i;
-                                    break;
+                            if (game_data.type !== 2) {
+                                if (msg_content.put.player_data.turn === game_data.current_turn) {
+                                    bad_turn = true;
+                                }
+                                let spectator = {
+                                    id: msg_content.put.player_data.id,
+                                    name: msg_content.put.player_data.name,
+                                    spectating: true,
+                                    play_counters: []
+                                }
+                                let ind = -1;
+                                for (let i = 0; i < game_data.players.length; i++) {
+                                    if (game_data.players[i].id === msg_content.put.player_data.id) {
+                                        ind = i;
+                                        break;
+                                    }
+                                }
+                                if(ind > -1) {
+                                    game_data.players.splice(ind, 1);
+                                }
+                                game_data.spectators.push(spectator);
+                                messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
+                                if (bad_turn) {
+                                    nextTurn();
                                 }
                             }
-                            if(ind > -1) {
-                                game_data.players.splice(ind, 1);
-                            }
-                            game_data.spectators.push(spectator);
-                            messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
-                            if (bad_turn) {
-                                nextTurn();
+                            else {
+                                let team = getTeam(msg_content.put.player_data.id);
+                                if (team.turn === game_data.current_turn) {
+                                    bad_turn = true;
+                                }
+                                let new_spectators = []
+                                for (let player of team) {
+                                    new_spectators.push(
+                                        {
+                                            id: player,
+                                            name: getPlayer(player, game_data.players).name,
+                                            spectating: true,
+                                            play_counters: []
+                                        }
+                                    );
+                                }
+                                for (let player of team) {
+                                    let ind = -1;
+                                    for (let i = 0; i < game_data.players.length; i++) {
+                                        if (game_data.players[i].id === player) {
+                                            ind = i;
+                                            break;
+                                        }
+                                    }
+                                    if(ind > -1) {
+                                        game_data.players.splice(ind, 1);
+                                    }
+                                }
+                                for (let spectator of new_spectators) {
+                                    game_data.spectators.push(spectator);
+                                    messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
+                                }
+                                if (bad_turn) {
+                                    nextTurn();
+                                }
                             }
                         }
                     }
