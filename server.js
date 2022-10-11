@@ -204,6 +204,97 @@ function getTeam(player, game_data) {
     return null;
 }
 
+function setVisibility(card, dest_type, game_data) {
+    switch(dest_type) {
+        case 'deck':
+            card.visible = [];
+            break;
+        case 'grave':
+            card.visible = [];
+            if (game_data.players) {
+                for (let player of game_data.players) {
+                    card.visible.push(player.id);
+                }
+                for (let player of game_data.spectators) {
+                    card.visible.push(player.id);
+                }
+            }
+            break;
+        case 'exile':
+            if (!card.facedown) {
+                card.visible = [];
+                if (game_data.players) {
+                    for (let player of game_data.players) {
+                        card.visible.push(player.id);
+                    }
+                    for (let player of game_data.spectators) {
+                        card.visible.push(player.id);
+                    }
+                }
+            }
+            break;
+        case 'commander':
+            card.visible = [];
+            if (game_data.players) {
+                for (let player of game_data.players) {
+                    card.visible.push(player.id);
+                }
+                for (let player of game_data.spectators) {
+                    card.visible.push(player.id);
+                }
+            }
+            break;
+        case 'temp_zone':
+            if (!card.facedown) {
+                card.visible = [];
+                if (game_data.players) {
+                    for (let player of game_data.players) {
+                        card.visible.push(player.id);
+                    }
+                    for (let player of game_data.spectators) {
+                        card.visible.push(player.id);
+                    }
+                }
+            }
+            break;
+        case 'play':
+            if (!card.facedown) {
+                card.visible = [];
+                if (game_data.players) {
+                    for (let player of game_data.players) {
+                        card.visible.push(player.id);
+                    }
+                    for (let player of game_data.spectators) {
+                        card.visible.push(player.id);
+                    }
+                }
+            }
+            break;
+    }
+}
+
+function fixVisibility(game_data) {
+    for (let player of game_data.players) {
+        for (let card of player.grave.cards) {
+            setVisibility(card, 'grave', game_data);
+        }
+        for (let card of player.exile.cards) {
+            setVisibility(card, 'exile', game_data);
+        }
+        for (let card of player.temp_zone.cards) {
+            setVisibility(card, 'temp_zone', game_data);
+        }
+        for (let card of player.commander.cards) {
+            setVisibility(card, 'commander', game_data);
+        }
+        for (let spot of player.playmat) {
+            for (let card of spot.cards) {
+                setVisibility(card, 'play', game_data);
+            }
+        }
+    }
+}
+
 function nextTurn(game_data) {
     if(game_data != null) {
         if (game_data.type === 1 || game_data.type === 3 || game_data.type === 4 || game_data.type == 5) {
@@ -486,9 +577,9 @@ wss.on("connection", ws => {
                                         let spectator = msg_content.put.player_data;
                                         spectator.spectating = true;
                                         spectator.play_counters = [];
+                                        fixVisibility(game_data);
                                         messageConnectedUsers(game_data, {get: {spectator_data: spectator}}, null);
                                     }
-
                                 }
                             }
                         }
