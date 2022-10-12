@@ -297,7 +297,7 @@ function fixVisibility(game_data) {
 
 function nextTurn(game_data) {
     if(game_data != null) {
-        if (game_data.type === 1 || game_data.type === 3 || game_data.type === 4 || game_data.type == 5) {
+        if (game_data.type === 1 || game_data.type === 3 || game_data.type === 4 || game_data.type === 5) {
             let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
             while (true) {
                 game_data.current_turn ++;
