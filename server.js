@@ -167,12 +167,13 @@ function backupGame(game) {
 }
 
 function backupGames() {
+    let testing = true;
     if (games.length > 0) {
         let backupPromises = [];
         let trashPromises = [];
         for (let game of games) {
             console.log('game age for game ' + game.id + ': ' + ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) + ' minutes');
-            if (((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10) {
+            if (!testing && ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10) {
                 trashPromises.push(endGame(null, null, game.id));
             }
             else {
@@ -316,6 +317,7 @@ wss.on("connection", ws => {
                         last_modified: Date.now(),
                         started: new Date().getTime(),
                         last_turn: null,
+                        kick_vote: null
                     });
                 }
             });
@@ -438,6 +440,40 @@ wss.on("connection", ws => {
                             game_data.last_modified = Date.now();
                             let previous_turn = JSON.parse(JSON.stringify(game_data.current_turn));
                             nextTurn(game_data);
+                        }
+                    }
+                    if (msg_content.put.action === 'kick_vote') {
+                        let game_data = getGame(msg_content.game_id);
+                        if (game_data && game_data.players != null) {
+                            game_data.last_modified = Date.now();
+                            game_data.kick_vote = {
+                                kicker: msg_content.put.kicker,
+                                kickee: msg_content.put.kickee,
+                                votes: msg_content.put.votes
+                            }
+                            messageConnectedUsers(game_data, {get: {
+                                kick_vote: {
+                                    kicker: msg_content.put.kicker,
+                                    kickee: msg_content.put.kickee,
+                                    votes: msg_content.put.votes
+                                }}}, ws);
+                        }
+                    }
+                    if (msg_content.put.action === 'vote_kick') {
+                        let game_data = getGame(msg_content.game_id);
+                        if (game_data && game_data.players != null) {
+                            game_data.last_modified = Date.now();
+                            if (!msg_content.put.vote.kick) {
+                                game_data.kick_vote = null;
+                                messageConnectedUsers(game_data, {get: {cancel_kick: true}})
+                            }
+                            else {
+                                game_data.kick_vote.votes.push(msg_content.put.vote);
+                                //Check if everyone has voted
+                                if (game_data.kick_vote.votes.length == game_data.players.length -1) {
+                                    //At this point we can force a scoop
+                                }
+                            }
                         }
                     }
                     if (msg_content.put.action === 'end') {
@@ -572,7 +608,7 @@ wss.on("connection", ws => {
                             game_data.spectators.push(spectator);
                             messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
                             if (bad_turn) {
-                                nextTurn();
+                                nextTurn(game_data);
                             }
                         }
                     }
@@ -586,7 +622,6 @@ wss.on("connection", ws => {
                 }
             }
             if (msg_content.ping) {
-                console.log('pong');
                 ws.send(JSON.stringify({pong: true}));
             }
         }
