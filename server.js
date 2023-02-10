@@ -543,7 +543,7 @@ wss.on("connection", ws => {
                             nextTurn(game_data);
                         }
                     }
-                    if (msg_content.put.action === 'kick_vote') {
+                    if (msg_content.put.action === 'kick_vote') { //initializing only, not actual votes
                         let game_data = getGame(msg_content.game_id);
                         if (game_data && game_data.players != null) {
                             game_data.last_modified = Date.now();
