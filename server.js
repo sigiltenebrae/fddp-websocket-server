@@ -167,7 +167,7 @@ function backupGame(game) {
 }
 
 function backupGames() {
-    let testing = true;
+    let testing = false;
     if (games.length > 0) {
         let backupPromises = [];
         let trashPromises = [];
@@ -355,6 +355,35 @@ function nextTurn(game_data) {
             game_data.last_turn = new Date().getTime();
             messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
         }
+    }
+}
+
+function scoopPlayer(game_data, player, ws) {
+    game_data.last_modified = Date.now();
+    let bad_turn = false;
+    if (player.turn === game_data.current_turn) {
+        bad_turn = true;
+    }
+    let spectator = {
+        id: player.id,
+        name: player.name,
+        spectating: true,
+        play_counters: []
+    }
+    let ind = -1;
+    for (let i = 0; i < game_data.players.length; i++) {
+        if (game_data.players[i].id === player.id) {
+            ind = i;
+            break;
+        }
+    }
+    if(ind > -1) {
+        game_data.players.splice(ind, 1);
+    }
+    game_data.spectators.push(spectator);
+    messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
+    if (bad_turn) {
+        nextTurn(game_data);
     }
 }
 
@@ -573,6 +602,8 @@ wss.on("connection", ws => {
                                 //Check if everyone has voted
                                 if (game_data.kick_vote.votes.length == game_data.players.length -1) {
                                     //At this point we can force a scoop
+                                    scoopPlayer(game_data, game_data.kick_vote.kickee, null);
+                                    messageConnectedUsers(game_data, {get: {cancel_kick: true}});
                                 }
                             }
                         }
@@ -686,32 +717,7 @@ wss.on("connection", ws => {
                     if (msg_content.put.action === 'scoop') {
                         let game_data = getGame(msg_content.game_id);
                         if (game_data && game_data.players != null) {
-                            game_data.last_modified = Date.now();
-                            let bad_turn = false;
-                            if (msg_content.put.player_data.turn === game_data.current_turn) {
-                                bad_turn = true;
-                            }
-                            let spectator = {
-                                id: msg_content.put.player_data.id,
-                                name: msg_content.put.player_data.name,
-                                spectating: true,
-                                play_counters: []
-                            }
-                            let ind = -1;
-                            for (let i = 0; i < game_data.players.length; i++) {
-                                if (game_data.players[i].id === msg_content.put.player_data.id) {
-                                    ind = i;
-                                    break;
-                                }
-                            }
-                            if(ind > -1) {
-                                game_data.players.splice(ind, 1);
-                            }
-                            game_data.spectators.push(spectator);
-                            messageConnectedUsers(game_data, {get: {scoop_data: spectator}}, ws);
-                            if (bad_turn) {
-                                nextTurn(game_data);
-                            }
+                            scoopPlayer(game_data, msg_content.put.player_data, ws);
                         }
                     }
                 }
