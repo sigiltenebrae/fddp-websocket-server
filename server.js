@@ -122,72 +122,24 @@ function playerInList(id, list) {
 
 function endGame(winners, id) {
     let game_data = getGame(id);
-    return new Promise((resolve) => {
-        pool.query('UPDATE games SET active = $1, game_data = $2 WHERE id = $3',
-            [false, null, id],
-            (error, results) => {
-                if (error) {
-                    console.log('Game end failed for deck with id: ' + id);
-                    console.log(error);
-                    resolve({errors: [error]});
-                }
-                else {
-                    let results_promises = [];
-                    if (winners.length > 0) {
-                        for (let player of game_data.players) {
-                            if (player.deck.id != null && !playerInList(player.id, winners)) {
-                                results_promises.push(new Promise((res) => {
-                                    pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                        [id, player.deck.id, player.id, false], (e, r) => {
-                                            if (e) {
-                                                console.log(e);
-                                            }
-                                            res();
-
-                                        });
-                                }));
-                            }
-                        }
-                        for (let player of game_data.spectators) {
-                            if (player.deck_id != null && !playerInList(player.id, winners)) {
-                                results_promises.push(new Promise((res) => {
-                                    pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                        [id, player.deck_id, player.id, false], (e, r) => {
-                                            if (e) {
-                                                console.log(e);
-                                            }
-                                            res();
-                                        });
-                                }));
-                            }
-                        }
-                        for (let player of winners) {
-                            if (player.deck.id != null) {
-                                results_promises.push(new Promise((res) => {
-                                    pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                        [id, player.deck.id, player.id, true], (e, r) => {
-                                            if (e) {
-                                                console.log(e);
-                                            }
-                                            res();
-                                        });
-                                }));
-                            }
-                        }
-                        Promise.all(results_promises).then(() => {
-                            console.log('game ended with id ' + id);
-                            games.splice(games.indexOf(getGame(id)), 1);
-                            resolve({message: 'game end successful'});
-                        });
+    if (game_data != null) {
+        return new Promise((resolve) => {
+            pool.query('UPDATE games SET active = $1, game_data = $2 WHERE id = $3',
+                [false, null, id],
+                (error, results) => {
+                    if (error) {
+                        console.log('Game end failed for deck with id: ' + id);
+                        console.log(error);
+                        resolve({errors: [error]});
                     }
                     else {
-                        if (game_data.players != null) {
-                            let results_promises = [];
+                        let results_promises = [];
+                        if (winners.length > 0) {
                             for (let player of game_data.players) {
                                 if (player.deck.id != null && !playerInList(player.id, winners)) {
                                     results_promises.push(new Promise((res) => {
                                         pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                            [id, player.deck.id, player.id, null], (e, r) => {
+                                            [id, player.deck.id, player.id, false], (e, r) => {
                                                 if (e) {
                                                     console.log(e);
                                                 }
@@ -201,7 +153,20 @@ function endGame(winners, id) {
                                 if (player.deck_id != null && !playerInList(player.id, winners)) {
                                     results_promises.push(new Promise((res) => {
                                         pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                            [id, player.deck_id, player.id, null], (e, r) => {
+                                            [id, player.deck_id, player.id, false], (e, r) => {
+                                                if (e) {
+                                                    console.log(e);
+                                                }
+                                                res();
+                                            });
+                                    }));
+                                }
+                            }
+                            for (let player of winners) {
+                                if (player.deck.id != null) {
+                                    results_promises.push(new Promise((res) => {
+                                        pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
+                                            [id, player.deck.id, player.id, true], (e, r) => {
                                                 if (e) {
                                                     console.log(e);
                                                 }
@@ -216,10 +181,47 @@ function endGame(winners, id) {
                                 resolve({message: 'game end successful'});
                             });
                         }
+                        else {
+                            if (game_data && game_data.players != null) {
+                                let results_promises = [];
+                                for (let player of game_data.players) {
+                                    if (player.deck.id != null && !playerInList(player.id, winners)) {
+                                        results_promises.push(new Promise((res) => {
+                                            pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
+                                                [id, player.deck.id, player.id, null], (e, r) => {
+                                                    if (e) {
+                                                        console.log(e);
+                                                    }
+                                                    res();
+
+                                                });
+                                        }));
+                                    }
+                                }
+                                for (let player of game_data.spectators) {
+                                    if (player.deck_id != null && !playerInList(player.id, winners)) {
+                                        results_promises.push(new Promise((res) => {
+                                            pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
+                                                [id, player.deck_id, player.id, null], (e, r) => {
+                                                    if (e) {
+                                                        console.log(e);
+                                                    }
+                                                    res();
+                                                });
+                                        }));
+                                    }
+                                }
+                                Promise.all(results_promises).then(() => {
+                                    console.log('game ended with id ' + id);
+                                    games.splice(games.indexOf(getGame(id)), 1);
+                                    resolve({message: 'game end successful'});
+                                });
+                            }
+                        }
                     }
-                }
-            })
-    })
+                })
+        })
+    }
 }
 
 function startGame(game) {
