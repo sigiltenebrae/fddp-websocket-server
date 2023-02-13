@@ -111,10 +111,10 @@ function createGame(name, type, max_players, active) {
     })
 }
 
-function endGame(winner, winner_two, id) {
+function endGame(id) {
     return new Promise((resolve) => {
-        pool.query('UPDATE games SET active = $1, winner = $2, winner_two = $3, game_data = $4 WHERE id = $5',
-            [false, winner, winner_two, null, id],
+        pool.query('UPDATE games SET active = $1, game_data = $2 WHERE id = $3',
+            [false, null, id],
             (error, results) => {
                 if (error) {
                     console.log('Game end failed for deck with id: ' + id);
@@ -174,7 +174,7 @@ function backupGames() {
         for (let game of games) {
             console.log('game age for game ' + game.id + ': ' + ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) + ' minutes');
             if (!testing && ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10) {
-                trashPromises.push(endGame(null, null, game.id));
+                trashPromises.push(endGame(game.id));
             }
             else {
                 backupPromises.push(backupGame(game));
@@ -368,7 +368,9 @@ function scoopPlayer(game_data, player, ws) {
         id: player.id,
         name: player.name,
         spectating: true,
-        play_counters: []
+        play_counters: [],
+        turn: player.turn,
+        deck_id: player.deck_id
     }
     let ind = -1;
     for (let i = 0; i < game_data.players.length; i++) {
