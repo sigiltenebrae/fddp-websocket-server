@@ -181,39 +181,41 @@ function endGame(winners, id) {
                         });
                     }
                     else {
-                        let results_promises = [];
-                        for (let player of game_data.players) {
-                            if (player.deck.id != null && !playerInList(player.id, winners)) {
-                                results_promises.push(new Promise((res) => {
-                                    pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                        [id, player.deck.id, player.id, null], (e, r) => {
-                                            if (e) {
-                                                console.log(e);
-                                            }
-                                            res();
+                        if (game_data.players != null) {
+                            let results_promises = [];
+                            for (let player of game_data.players) {
+                                if (player.deck.id != null && !playerInList(player.id, winners)) {
+                                    results_promises.push(new Promise((res) => {
+                                        pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
+                                            [id, player.deck.id, player.id, null], (e, r) => {
+                                                if (e) {
+                                                    console.log(e);
+                                                }
+                                                res();
 
-                                        });
-                                }));
+                                            });
+                                    }));
+                                }
                             }
-                        }
-                        for (let player of game_data.spectators) {
-                            if (player.deck_id != null && !playerInList(player.id, winners)) {
-                                results_promises.push(new Promise((res) => {
-                                    pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
-                                        [id, player.deck_id, player.id, null], (e, r) => {
-                                            if (e) {
-                                                console.log(e);
-                                            }
-                                            res();
-                                        });
-                                }));
+                            for (let player of game_data.spectators) {
+                                if (player.deck_id != null && !playerInList(player.id, winners)) {
+                                    results_promises.push(new Promise((res) => {
+                                        pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
+                                            [id, player.deck_id, player.id, null], (e, r) => {
+                                                if (e) {
+                                                    console.log(e);
+                                                }
+                                                res();
+                                            });
+                                    }));
+                                }
                             }
+                            Promise.all(results_promises).then(() => {
+                                console.log('game ended with id ' + id);
+                                games.splice(games.indexOf(getGame(id)), 1);
+                                resolve({message: 'game end successful'});
+                            });
                         }
-                        Promise.all(results_promises).then(() => {
-                            console.log('game ended with id ' + id);
-                            games.splice(games.indexOf(getGame(id)), 1);
-                            resolve({message: 'game end successful'});
-                        });
                     }
                 }
             })
