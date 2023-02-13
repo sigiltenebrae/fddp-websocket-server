@@ -88,10 +88,10 @@ function getActiveGames() {
     })
 }
 
-function createGame(name, type, max_players, active) {
+function createGame(name, type, max_players, keep_active) {
     return new Promise((resolve) => {
-        pool.query('INSERT INTO games (name, type, max_players, active) VALUES ($1, $2, $3, true) RETURNING *',
-            [name, type, max_players],
+        pool.query('INSERT INTO games (name, type, max_players, active, keep_active) VALUES ($1, $2, $3, true, $4) RETURNING *',
+            [name, type, max_players, keep_active],
             (error, results) => {
                 if (error) {
                     console.log('game creation failed');
@@ -263,7 +263,7 @@ function backupGames() {
         let trashPromises = [];
         for (let game of games) {
             console.log('game age for game ' + game.id + ': ' + ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) + ' minutes');
-            if (!testing && ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10) {
+            if (!testing && ((Math.abs(Date.now() - game.last_modified) / 1000)/ 60) > 10 && !game.keep_active) {
                 trashPromises.push(endGame(game.id));
             }
             else {
@@ -523,7 +523,7 @@ wss.on("connection", ws => {
             }
         }
         if (msg_content.create) {
-            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.max_players).then((new_game) => {
+            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
                 if (new_game && new_game.game_id) {
                     console.log('created game ' + new_game.game_id);
                     games.push({
@@ -531,6 +531,7 @@ wss.on("connection", ws => {
                         name: msg_content.create.name,
                         max_players: msg_content.create.max_players,
                         type: msg_content.create.type,
+                        keep_active: msg_content.create.keep_active,
                         current_turn: 0,
                         turn_count: 0,
                         players: [],
