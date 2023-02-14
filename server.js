@@ -708,6 +708,7 @@ wss.on("connection", ws => {
                     if (msg_content.put.action === 'end') {
                         let game_data = getGame(msg_content.game_id);
                         if (game_data) {
+                            messageConnectedUsers(game_data, {get: {end_game: true}}, null);
                             endGame(msg_content.put.winners, msg_content.game_id).then(() => {});
                         }
                     }
