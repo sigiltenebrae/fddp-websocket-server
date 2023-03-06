@@ -613,37 +613,6 @@ wss.on("connection", ws => {
                                     messageConnectedUsers(game_data,{get: {game_data: JSON.parse(JSON.stringify(game_data))}}, null);
                                     backupGame(game_data);
                                 }
-                                else if (game_data.type === game_types['star']) {
-                                    if (msg_content.put.colors) {
-                                        for (let player of game_data.players) {
-                                            for (let color of msg_content.put.colors) {
-                                                if (color.id === player.id) {
-                                                    player.star_color = color.star_color;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    console.log('starting game ' + game_data.id);
-                                    for (let i = 0; i < game_data.players.length; i++) {
-                                        let r = i + Math.floor(Math.random() * (game_data.players.length - i));
-                                        let temp = game_data.players[r];
-                                        game_data.players[r] = game_data.players[i];
-                                        game_data.players[i] = temp;
-                                    }
-                                    let play_order = [];
-                                    for (let i = 0; i < game_data.players.length; i++) {
-                                        play_order.push({ id: game_data.players[i].id, turn: i});
-                                        game_data.players[i].turn = i;
-                                    }
-                                    game_data.turn_count = 1;
-                                    game_data.current_turn = 0;
-                                    console.log('got here');
-                                    game_data.last_turn = new Date().getTime();
-                                    messageConnectedUsers(game_data,
-                                        JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
-                                    backupGame(game_data);
-                                }
                                 else {
                                     console.log('starting game ' + game_data.id);
                                     for (let i = 0; i < game_data.players.length; i++) {
@@ -667,6 +636,24 @@ wss.on("connection", ws => {
                                 }
 
                             });
+                        }
+                    }
+                    if (msg_content.put.action === 'colors') {
+                        let game_data = getGame(msg_content.game_id);
+                        console.log('setting colors');
+                        if (game_data) {
+                            if (msg_content.put.colors) {
+                                for (let player of game_data.players) {
+                                    for (let color of msg_content.put.colors) {
+                                        if (color.id === player.id) {
+                                            player.star_color = color.star_color;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            messageConnectedUsers(game_data,
+                                JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
                         }
                     }
                     if (msg_content.put.action === 'end_turn') {
