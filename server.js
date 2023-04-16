@@ -455,7 +455,7 @@ function nextTurn(game_data) {
             }
             console.log('turn update');
             game_data.last_turn = new Date().getTime();
-            messageConnectedUsers(game_data, JSON.stringify({get: {turn_update: game_data.current_turn}}), null);
+            messageConnectedUsers(game_data, JSON.parse(JSON.stringify({get: {turn_update: game_data.current_turn}})), null);
         }
     }
 }
@@ -577,31 +577,19 @@ wss.on("connection", ws => {
                         if (game_data) {
                             startGame(game_data).then(() => {
                                 if (game_data.type === game_types['two-headed']) {
-                                    let team_data = [];
-                                    for (let j = 0; j < msg_content.put.teams.length; j++) {
-                                        team_data.push({
-                                            team_id: j,
-                                            turn: -1,
-                                            life: 60,
-                                            infect: 0,
-                                            scooped: false,
-                                            players: msg_content.put.teams[j],
-                                        });
-                                    }
-                                    for (let i = 0; i < team_data.length; i++) {
-                                        let r = i + Math.floor(Math.random() * (team_data.length - i));
-                                        let temp = team_data[r];
-                                        team_data[r] = team_data[i];
-                                        team_data[i] = temp;
+                                    for (let i = 0; i < game_data.team_data.length; i++) {
+                                        let r = i + Math.floor(Math.random() * (game_data.team_data.length - i));
+                                        let temp = game_data.team_data[r];
+                                        game_data.team_data[r] = game_data.team_data[i];
+                                        game_data.team_data[i] = temp;
                                     }
                                     let play_order = [];
-                                    for (let i = 0; i < team_data.length; i++) {
-                                        play_order.push({ team_id: team_data[i].team_id, turn: i});
-                                        team_data[i].turn = i;
+                                    for (let i = 0; i < game_data.team_data.length; i++) {
+                                        play_order.push({ team_id: game_data.team_data[i].team_id, turn: i});
+                                        game_data.team_data[i].turn = i;
                                     }
                                     game_data.current_turn = 0;
                                     game_data.turn_count = 1;
-                                    game_data.team_data = team_data;
                                     for (let team of game_data.team_data) {
                                         if (team.players && team.players.length === 2) {
                                             getPlayer(team.players[0], game_data.players).teammate_id = team.players[1];
@@ -638,6 +626,28 @@ wss.on("connection", ws => {
                                 }
 
                             });
+                        }
+                    }
+                    if (msg_content.put.action === 'teams') {
+                        let game_data = getGame(msg_content.game_id);
+                        console.log('setting teams');
+                        if (game_data) {
+                            if (msg_content.put.teams) {
+                                let team_data = [];
+                                for (let j = 0; j < msg_content.put.teams.length; j++) {
+                                    team_data.push({
+                                        team_id: j,
+                                        turn: -1,
+                                        life: 60,
+                                        infect: 0,
+                                        scooped: false,
+                                        players: msg_content.put.teams[j],
+                                    });
+                                }
+                                game_data.team_data = team_data;
+                                messageConnectedUsers(game_data,
+                                    JSON.parse(JSON.stringify({get: {game_data: game_data}})), null);
+                            }
                         }
                     }
                     if (msg_content.put.action === 'colors') {
