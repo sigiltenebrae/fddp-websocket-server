@@ -88,10 +88,10 @@ function getActiveGames() {
     })
 }
 
-function createGame(name, type, max_players, keep_active) {
+function createGame(name, type, test, fast, max_players, keep_active) {
     return new Promise((resolve) => {
-        pool.query('INSERT INTO games (name, type, max_players, active, keep_active) VALUES ($1, $2, $3, true, $4) RETURNING *',
-            [name, type, max_players, keep_active],
+        pool.query('INSERT INTO games (name, type, test, fast, max_players, active, keep_active) VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING *',
+            [name, type, test, fast, max_players, keep_active],
             (error, results) => {
                 if (error) {
                     console.log('game creation failed');
@@ -134,7 +134,7 @@ function endGame(winners, id) {
                     }
                     else {
                         let results_promises = [];
-                        if (game_data.type !== 6) {
+                        if (!game_data.test) {
                             if (winners.length > 0) {
                                 for (let player of game_data.players) {
                                     if (player.deck.id != null && !playerInList(player.id, winners)) {
@@ -535,7 +535,7 @@ wss.on("connection", ws => {
             }
         }
         if (msg_content.create) {
-            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
+            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.test, msg_content.create.fast, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
                 if (new_game && new_game.game_id) {
                     console.log('created game ' + new_game.game_id);
                     games.push({
@@ -543,6 +543,8 @@ wss.on("connection", ws => {
                         name: msg_content.create.name,
                         max_players: msg_content.create.max_players,
                         type: msg_content.create.type,
+                        test: msg_content.create.test,
+                        fast: msg_content.create.fast,
                         keep_active: msg_content.create.keep_active,
                         current_turn: 0,
                         turn_count: 0,
@@ -726,7 +728,7 @@ wss.on("connection", ws => {
                                 else {
                                     console.log('player not found, adding')
                                     if (game_data.turn_count === 0 && game_data.players.length < game_data.max_players) { //the game is in progress
-                                        if (game_data.type === 6) {
+                                        if (game_data.test) {
                                             game_data.players.push({id: msg_content.put.player_data.id, name: msg_content.put.player_data.name + '_1'});
                                             for (let i = 1; i < game_data.max_players; i++) {
                                                 game_data.players.push({id: -i, name: msg_content.put.player_data.name + '_' + (i + 1)});
