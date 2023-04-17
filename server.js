@@ -88,10 +88,10 @@ function getActiveGames() {
     })
 }
 
-function createGame(name, type, test, fast, max_players, keep_active) {
+function createGame(name, type, test, fast, planeschase, max_players, keep_active) {
     return new Promise((resolve) => {
-        pool.query('INSERT INTO games (name, type, test, fast, max_players, active, keep_active) VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING *',
-            [name, type, test, fast, max_players, keep_active],
+        pool.query('INSERT INTO games (name, type, test, fast, planeschase, max_players, active, keep_active) VALUES ($1, $2, $3, $4, $5, $6, true, $7) RETURNING *',
+            [name, type, test, fast, planeschase, max_players, keep_active],
             (error, results) => {
                 if (error) {
                     console.log('game creation failed');
@@ -535,7 +535,7 @@ wss.on("connection", ws => {
             }
         }
         if (msg_content.create) {
-            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.test, msg_content.create.fast, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
+            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.test, msg_content.create.fast, msg_content.create.planeschase, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
                 if (new_game && new_game.game_id) {
                     console.log('created game ' + new_game.game_id);
                     games.push({
@@ -545,6 +545,7 @@ wss.on("connection", ws => {
                         type: msg_content.create.type,
                         test: msg_content.create.test,
                         fast: msg_content.create.fast,
+                        planeschase: msg_content.create.planeschase,
                         keep_active: msg_content.create.keep_active,
                         current_turn: 0,
                         turn_count: 0,
