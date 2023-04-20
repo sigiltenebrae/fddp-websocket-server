@@ -758,11 +758,11 @@ wss.on("connection", ws => {
                                         }
                                     }
                                     else { //spectate
-                                        game_data.spectators.push(msg_content.put.player_data);
                                         console.log('updating players')
                                         let spectator = msg_content.put.player_data;
                                         spectator.spectating = true;
                                         spectator.play_counters = [];
+                                        game_data.spectators.push(spectator);
                                         messageConnectedUsers(game_data, {get: {spectator_data: spectator}}, null);
                                     }
 
