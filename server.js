@@ -816,6 +816,15 @@ wss.on("connection", ws => {
                                 messageConnectedUsers(game_data, {get: {plane_data: msg_content.put.plane_data}}, ws);
                             }
                         }
+                        if (msg_content.put.day != null) {
+                            let game_data = getGame(msg_content.game_id);
+                            if (game_data) {
+                                console.log('got time change');
+                                game_data.last_modified = Date.now();
+                                game_data.day = msg_content.put.day;
+                                messageConnectedUsers(game_data, {get: {day: msg_content.put.day}}, ws);
+                            }
+                        }
                     }
                     if (msg_content.put.action === 'shake') {
                         let game_data = getGame(msg_content.game_id);
