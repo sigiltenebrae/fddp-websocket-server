@@ -722,6 +722,21 @@ wss.on("connection", ws => {
                             endGame(msg_content.put.winners, msg_content.game_id).then(() => {});
                         }
                     }
+                    if (msg_content.put.action === 'unscoop') {
+                        if (msg_content.put.player_data) {
+                            let game_data = getGame(msg_content.game_id);
+                            if (game_data && game_data.spectators != null) {
+                                console.log('removing spectator');
+                                for (let i = 0; i < game_data.spectators.length; i++) {
+                                    if (game_data.spectators[i].id === msg_content.put.player_data.id) {
+                                        game_data.spectators.splice(i, 1);
+                                        messageConnectedUsers(game_data, {get: {unscoop_data: msg_content.put.player_data}}, null);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (msg_content.put.action === 'update') {
                         console.log('got player update');
                         if (msg_content.put.player_data) {
