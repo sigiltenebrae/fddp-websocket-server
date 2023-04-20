@@ -609,6 +609,21 @@ wss.on("connection", ws => {
                                 else {
                                     console.log('starting game ' + game_data.id);
                                     for (let i = 0; i < game_data.players.length; i++) {
+                                        if (game_data.players[i].deck == null) {
+                                            let spectator = {
+                                                id: game_data.players[i].id,
+                                                name: game_data.players[i].name,
+                                                spectating: true,
+                                                play_counters: [],
+                                                turn: null,
+                                                deck_id: null
+                                            }
+                                            game_data.players.splice(i, 1);
+                                            game_data.spectators.push(spectator);
+                                            i--;
+                                        }
+                                    }
+                                    for (let i = 0; i < game_data.players.length; i++) {
                                         let r = i + Math.floor(Math.random() * (game_data.players.length - i));
                                         let temp = game_data.players[r];
                                         game_data.players[r] = game_data.players[i];
