@@ -88,10 +88,10 @@ function getActiveGames() {
     })
 }
 
-function createGame(name, type, test, fast, planeschase, max_players, keep_active) {
+function createGame(name, type, test, fast, random, expensive, planeschase, max_players, keep_active) {
     return new Promise((resolve) => {
-        pool.query('INSERT INTO games (name, type, test, fast, planeschase, max_players, active, keep_active) VALUES ($1, $2, $3, $4, $5, $6, true, $7) RETURNING *',
-            [name, type, test, fast, planeschase, max_players, keep_active],
+        pool.query('INSERT INTO games (name, type, test, fast, random, expensive, planeschase, max_players, active, keep_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9) RETURNING *',
+            [name, type, test, fast, random, expensive, planeschase, max_players, keep_active],
             (error, results) => {
                 if (error) {
                     console.log('game creation failed');
@@ -186,7 +186,7 @@ function endGame(winners, id) {
                                 if (game_data && game_data.players != null) {
                                     let results_promises = [];
                                     for (let player of game_data.players) {
-                                        if (player.deck.id != null && !playerInList(player.id, winners)) {
+                                        if (player.deck != null && player.deck.id != null && !playerInList(player.id, winners)) {
                                             results_promises.push(new Promise((res) => {
                                                 pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
                                                     [id, player.deck.id, player.id, null], (e, r) => {
@@ -200,7 +200,7 @@ function endGame(winners, id) {
                                         }
                                     }
                                     for (let player of game_data.spectators) {
-                                        if (player.deck_id != null && !playerInList(player.id, winners)) {
+                                        if (player.deck != null && player.deck_id != null && !playerInList(player.id, winners)) {
                                             results_promises.push(new Promise((res) => {
                                                 pool.query('INSERT INTO game_results (game_id, deck_id, player_id, winner) VALUES ($1, $2, $3, $4)',
                                                     [id, player.deck_id, player.id, null], (e, r) => {
@@ -535,7 +535,7 @@ wss.on("connection", ws => {
             }
         }
         if (msg_content.create) {
-            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.test, msg_content.create.fast, msg_content.create.planeschase, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
+            createGame(msg_content.create.name, msg_content.create.type, msg_content.create.test, msg_content.create.fast, msg_content.create.random, msg_content.create.expensive, msg_content.create.planeschase, msg_content.create.max_players, msg_content.create.keep_active).then((new_game) => {
                 if (new_game && new_game.game_id) {
                     console.log('created game ' + new_game.game_id);
                     games.push({
@@ -545,6 +545,8 @@ wss.on("connection", ws => {
                         type: msg_content.create.type,
                         test: msg_content.create.test,
                         fast: msg_content.create.fast,
+                        random: msg_content.create.random,
+                        expensive: msg_content.create.expensive,
                         planeschase: msg_content.create.planeschase,
                         keep_active: msg_content.create.keep_active,
                         current_turn: 0,
